@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  taskforge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: taskforge-app
+    ports:
+      - "8080:8080"
+    environment:
+      - TASKFORGE_WORKERS=4
+      - TASKFORGE_QUEUE_SIZE=1000
+      - TASKFORGE_MAX_RETRIES=3
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - taskforge-network
+
+  # Redis for production-grade job storage (optional enhancement)
+  redis:
+    image: redis:7-alpine
+    container_name: taskforge-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - taskforge-network
+    command: redis-server --appendonly yes
+
+  # Monitoring with Prometheus (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: taskforge-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+    networks:
+      - taskforge-network
+
+  # Grafana for dashboards (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: taskforge-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    networks:
+      - taskforge-network
+    depends_on:
+      - prometheus
+
+networks:
+  taskforge-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  grafana-data:
